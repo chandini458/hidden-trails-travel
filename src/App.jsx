@@ -11,6 +11,16 @@ const initialFormState = {
   password: '',
 };
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
+function getApiUrl(path) {
+  if (!path.startsWith('/')) {
+    return `${API_BASE_URL}/${path}`;
+  }
+
+  return `${API_BASE_URL}${path}`;
+}
+
 export default function App() {
   const [destinations, setDestinations] = useState([]);
   const [user, setUser] = useState(null);
@@ -28,7 +38,7 @@ export default function App() {
 
   async function fetchDestinations() {
     try {
-      const response = await fetch('/api/destinations');
+      const response = await fetch(getApiUrl('/api/destinations'));
 
       if (!response.ok) {
         throw new Error('Unable to fetch destinations.');
@@ -46,7 +56,7 @@ export default function App() {
 
   async function fetchCurrentUser() {
     try {
-      const response = await fetch('/api/auth/me', { credentials: 'include' });
+      const response = await fetch(getApiUrl('/api/auth/me'), { credentials: 'include' });
 
       if (!response.ok) {
         return;
@@ -65,7 +75,7 @@ export default function App() {
     setErrorMessage('');
     setStatusMessage('');
 
-    const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/signup';
+    const endpoint = authMode === 'login' ? getApiUrl('/api/auth/login') : getApiUrl('/api/auth/signup');
     const payload = authMode === 'login'
       ? { email: formData.email, password: formData.password }
       : { name: formData.name, email: formData.email, password: formData.password };
@@ -97,7 +107,7 @@ export default function App() {
 
   async function handleLogout() {
     try {
-      await fetch('/api/auth/logout', {
+      await fetch(getApiUrl('/api/auth/logout'), {
         method: 'POST',
         credentials: 'include',
       });
