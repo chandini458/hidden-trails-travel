@@ -1,79 +1,130 @@
-# Hidden Trails
+# Hidden Trails Travel App
 
-Hidden Trails is a responsive travel discovery website featuring curated trips to Bali, Morocco, and the Swiss Alps. Assignment 2 evolves the original static Assignment 1 site into a React application built with Vite and styled with Tailwind CSS.
+Hidden Trails is a full-stack travel website built with React + Tailwind on the frontend and Express + Postgres on the backend. The project includes a live API, database-backed destinations, and real auth with session cookies.
 
-## Before: Assignment 1
+## Assignment 3 features
 
-- The entire page was written as static HTML in the root `index.html` file.
-- Site styles, responsive layouts, colors, and component appearance were maintained in a standalone `style.css` stylesheet.
-- Destination cards and the travel-style, benefit, and testimonial content were individually repeated in the HTML.
-- The page presented the three destinations but did not let visitors filter them or change trip details.
-- Responsive behavior was implemented with CSS media queries for tablet and mobile widths.
+- Split frontend and backend structure with the Vite app on the client and Express API in `server/`
+- Postgres database connection using `pg` and environment variables in `.env`
+- Database schema and seed script for products and user data
+- Real API routes for health checks, destination reading, and auth
+- Signup and login flows with bcrypt password hashing and JWT cookie sessions
+- UI updates to show signed in vs signed out state
+- Vite proxy to the backend so the app uses `/api` routes during development
 
-## Now: Assignment 2
-
-- Rebuilt the site as a React single-page application and configured Vite for local development and production builds.
-- Replaced the old standalone stylesheet with Tailwind CSS utility classes and a small global stylesheet for browser defaults, accessibility focus, and reduced-motion support.
-- Split the site into `Header`, `Hero`, `MainContent`, and `Footer` components, with a reusable `DestinationCard` and `QuantityStepper` inside the main content.
-- Moved destinations, travel styles, benefits, and testimonials into a hardcoded JavaScript data module; repeated page items are rendered from arrays with stable keys.
-- Added a real destination category filter. React `useState` stores the active category, and the displayed destinations are derived from that state.
-- Added a controlled traveler-count stepper to every destination card. The card receives its count as a prop and asks its parent to update it through an `onChange` callback; counts are kept separately for each destination and limited to 1–12.
-- Rewrote layout styling mobile-first: base Tailwind classes target small screens, with `sm:`, `lg:`, and other breakpoint variants adding wider layouts.
-- Added semantic labels and pressed states to filter buttons, descriptive image text, keyboard focus visibility, lazy-loaded card images, and reduced-motion handling.
-- Preserved the Hidden Trails brand, original destination details, travel-style content, benefits, sample traveler stories, contact details, and overall green, warm-neutral, and orange visual palette.
-- Added a minimum supported viewport width of 320px and constrained page overflow to prevent horizontal scrolling on narrow screens.
-
-## Project Structure
+## Project structure
 
 ```text
-index.html
-package.json
-postcss.config.js
-tailwind.config.js
-vite.config.js
-src/
-  App.jsx
-  index.css
-  main.jsx
-  components/
-    Footer.jsx
-    Header.jsx
-    Hero.jsx
-    MainContent.jsx
-    QuantityStepper.jsx
-  data/
-    destinations.js
+.
+├── .env.example
+├── .gitignore
+├── README.md
+├── index.html
+├── package.json
+├── postcss.config.js
+├── tailwind.config.js
+├── vite.config.js
+├── src/
+│   ├── App.jsx
+│   ├── index.css
+│   ├── main.jsx
+│   ├── components/
+│   │   ├── Footer.jsx
+│   │   ├── Header.jsx
+│   │   ├── Hero.jsx
+│   │   ├── MainContent.jsx
+│   │   └── QuantityStepper.jsx
+│   └── data/
+│       └── destinations.js
+├── server/
+│   ├── README.md
+│   ├── index.js
+│   ├── config/
+│   │   └── db.js
+│   ├── db/
+│   │   ├── schema.sql
+│   │   └── seed.js
+│   ├── middleware/
+│   │   └── auth.js
+│   └── routes/
+│       ├── auth.js
+│       └── destinations.js
+└── .env (local only, not committed)
 ```
 
-## Run Locally
+## Environment setup
 
-Requirements: Node.js 18 or newer and npm.
+1. Copy `.env.example` to `.env`
+2. Fill in your real Postgres connection string and a strong JWT secret
+3. Create the database schema and seed the data
+
+```bash
+psql $DATABASE_URL -f server/db/schema.sql
+npm run seed
+```
+
+## Local development
+
+Requirements: Node.js 18+ and npm.
 
 ```bash
 npm install
-npm run dev
+npm run dev:full
 ```
 
-Open the local URL printed by Vite. To verify a production build:
+This starts:
+- Vite frontend at http://localhost:5173
+- Express API at http://localhost:5000
+
+If you want to run only the backend:
+
+```bash
+npm run server:dev
+```
+
+To build for production:
 
 ```bash
 npm run build
-npm run preview
 ```
 
-## State Concepts to Explain
+## API overview
 
-### Destination filter
+### Public routes
 
-`MainContent` starts with the `activeFilter` state set to `All`. Clicking a filter button calls `setActiveFilter` with that category. React renders again, and `visibleDestinations` selects either every destination or only those whose category matches. The source array is not changed by filtering.
+- `GET /api/health` — checks if the API is online
+- `GET /api/destinations` — returns destination packages from Postgres
 
-### Controlled traveler stepper
+### Auth routes
 
-`travelerCounts` lives in `MainContent`, so the parent is the source of truth. Each `DestinationCard` passes its own count to `QuantityStepper` as `value`, plus a callback as `onChange`. Clicking plus or minus calls that callback; the parent updates just that destination's count, and React passes the new value back down. The stepper is therefore controlled rather than keeping a separate internal count.
+- `POST /api/auth/signup` — creates a user and logs them in
+- `POST /api/auth/login` — signs in an existing user
+- `GET /api/auth/me` — returns current signed-in user from cookie session
+- `POST /api/auth/logout` — clears the auth cookie
 
-## Assignment Notes
+## Database schema
 
-- No TypeScript, backend, or additional runtime libraries are used.
-- Destination data remains hardcoded in `src/data/destinations.js` as required.
-- Use small, meaningful commits during development; commit history is created locally by the project author and is not generated by this setup.
+The app uses two main tables:
+
+- `users` — stores each account's name, email, and password hash
+- `destinations` — stores travel package rows such as destination name, category, description, duration, price, and image URL
+
+The database is seeded with the initial Bali, Morocco, and Swiss Alps package data so the frontend gets real API data instead of hardcoded values.
+
+## Auth flow
+
+- Passwords are hashed with `bcryptjs` before insertion.
+- A JWT is created on signup/login and sent as an httpOnly cookie.
+- The API checks the cookie with middleware before protected routes run.
+- The frontend reads the session from `/api/auth/me` and updates the Header to show a sign-in or sign-out state.
+
+## Deployment notes
+
+This repo is configured to work with a Postgres database and a public backend deployment. In production, set `DATABASE_URL`, `JWT_SECRET`, and `CLIENT_URL` in the host environment, then deploy the backend to a service such as Render and the frontend to Vercel or Netlify.
+
+## Assignment notes
+
+- No TypeScript is used.
+- Secrets are kept in `.env` and excluded from Git.
+- The project keeps the existing Hidden Trails design while moving to a real backend architecture.
 - GitHub repository: https://github.com/chandini458/hidden-trails-travel

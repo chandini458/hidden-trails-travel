@@ -1,14 +1,11 @@
-import { useState } from 'react';
-import { benefits, destinations, testimonials, travelStyles } from '../data/destinations.js';
+import { useEffect, useMemo, useState } from 'react';
 import QuantityStepper from './QuantityStepper.jsx';
-
-const filters = ['All', ...new Set(destinations.map((destination) => destination.category))];
 
 // Reusable destination card keeps each repeated item consistent and data-driven.
 function DestinationCard({ destination, travelers, onTravelersChange }) {
   return (
     <article className="group min-w-0 overflow-hidden rounded-[14px] border border-trail-border bg-trail-surface shadow-card transition duration-300 hover:-translate-y-1.5 hover:shadow-lifted">
-      <img className="h-52 w-full transition duration-500 group-hover:scale-[1.03] sm:h-56" src={destination.image} alt={destination.imageAlt} loading="lazy" />
+      <img className="h-52 w-full transition duration-500 group-hover:scale-[1.03] sm:h-56" src={destination.image} alt={destination.imageAlt || destination.name} loading="lazy" />
       <div className="relative space-y-3 p-5 sm:p-6">
         <span className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-trail-orange">{destination.category}</span>
         <h3 className="font-display text-2xl leading-tight text-trail-forest">{destination.name}</h3>
@@ -29,20 +26,31 @@ function DestinationCard({ destination, travelers, onTravelersChange }) {
 }
 
 // MainContent owns the destination filter state and the site's supporting sections.
-export default function MainContent() {
+export default function MainContent({ destinations = [], loading = false, travelStyles = [], benefits = [], testimonials = [], user = null }) {
   const [activeFilter, setActiveFilter] = useState('All');
-  const [travelerCounts, setTravelerCounts] = useState(() =>
-    Object.fromEntries(destinations.map((destination) => [destination.id, 1])),
+
+  const travelerCounts = useMemo(
+    () => Object.fromEntries(destinations.map((destination) => [destination.id ?? destination.slug, 1])),
+    [destinations],
   );
 
-  // Filtering is derived from state; the source destination data stays unchanged.
+  const [counts, setCounts] = useState(travelerCounts);
+
+  useEffect(() => {
+    setCounts(Object.fromEntries(destinations.map((destination) => [destination.id ?? destination.slug, 1])));
+  }, [destinations]);
+
+  const filters = useMemo(
+    () => ['All', ...new Set(destinations.map((destination) => destination.category))],
+    [destinations],
+  );
+
   const visibleDestinations = activeFilter === 'All'
     ? destinations
     : destinations.filter((destination) => destination.category === activeFilter);
 
-  // The parent updates the controlled count associated with only the chosen card.
   function updateTravelerCount(destinationId, count) {
-    setTravelerCounts((currentCounts) => ({ ...currentCounts, [destinationId]: count }));
+    setCounts((currentCounts) => ({ ...currentCounts, [destinationId]: count }));
   }
 
   return (
@@ -57,34 +65,48 @@ export default function MainContent() {
           <a className="text-sm font-bold text-trail-green transition hover:text-trail-orange" href="#travel-styles">Find your escape →</a>
         </div>
 
-        <div className="mb-6 flex flex-wrap gap-2" aria-label="Filter destinations by travel style">
-          {filters.map((filter) => {
-            const isActive = filter === activeFilter;
-            return (
-              <button
-                className={`min-h-10 rounded-full border px-4 text-sm font-semibold transition ${isActive ? 'border-trail-green bg-trail-green text-white' : 'border-trail-border bg-trail-surface text-trail-green hover:border-trail-green'}`}
-                type="button"
-                key={filter}
-                aria-pressed={isActive}
-                onClick={() => setActiveFilter(filter)}
-              >
-                {filter}
-              </button>
-            );
-          })}
-        </div>
+        {user && (
+          <div className="mb-6 rounded-2xl border border-trail-green/30 bg-trail-peach p-3 text-sm font-medium text-trail-forest">
+            Signed in as {user.name}. Your travel profile is ready.
+          </div>
+        )}
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-          {visibleDestinations.map((destination) => (
-            <DestinationCard
-              key={destination.id}
-              destination={destination}
-              travelers={travelerCounts[destination.id]}
-              onTravelersChange={(count) => updateTravelerCount(destination.id, count)}
-            />
-          ))}
-        </div>
-        {visibleDestinations.length === 0 && <p className="py-8 text-center text-trail-muted">No destinations match this filter.</p>}
+        {loading ? (
+          <div className="rounded-[16px] border border-trail-border bg-trail-surface p-6 text-center text-trail-muted">
+            Loading destination data from the live API...
+          </div>
+        ) : (
+          <>
+            <div className="mb-6 flex flex-wrap gap-2" aria-label="Filter destinations by travel style">
+              {filters.map((filter) => {
+                const isActive = filter === activeFilter;
+                return (
+                  <button
+                    className={`min-h-10 rounded-full border px-4 text-sm font-semibold transition ${isActive ? 'border-trail-green bg-trail-green text-white' : 'border-trail-border bg-trail-surface text-trail-green hover:border-trail-green'}`}
+                    type="button"
+                    key={filter}
+                    aria-pressed={isActive}
+                    onClick={() => setActiveFilter(filter)}
+                  >
+                    {filter}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+              {visibleDestinations.map((destination) => (
+                <DestinationCard
+                  key={destination.id ?? destination.slug}
+                  destination={destination}
+                  travelers={counts[destination.id ?? destination.slug] ?? 1}
+                  onTravelersChange={(count) => updateTravelerCount(destination.id ?? destination.slug, count)}
+                />
+              ))}
+            </div>
+            {visibleDestinations.length === 0 && <p className="py-8 text-center text-trail-muted">No destinations match this filter.</p>}
+          </>
+        )}
       </section>
 
       <section className="bg-trail-tint py-12 sm:py-[76px]" id="travel-styles">
